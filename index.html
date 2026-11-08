@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#121214">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="般若心経をスマホで手軽に暗唱。フレーズ別4択クイズ、意味の区切り別テスト、ルビ・現代語訳・木魚音つきPWAアプリ。">
+  <title>般若心経 暗唱マスター</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app" class="app-container">
+    <!-- 上部バー：タイトルとクイック設定スイッチ -->
+    <header class="app-header">
+      <div class="header-top">
+        <h1 class="app-title">般若心経 <span>暗唱</span></h1>
+        <div class="quick-settings">
+          <button id="btn-sound" class="btn-toggle" title="音のON/OFF">
+            🔔 <span class="btn-text">音:入</span>
+          </button>
+          <button id="btn-ruby" class="btn-toggle" title="ふりがなのON/OFF">
+            🈐 <span class="btn-text">ルビ:入</span>
+          </button>
+          <button id="btn-meaning" class="btn-toggle" title="現代語訳のON/OFF">
+            💬 <span class="btn-text">訳:入</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- モード切り替えタブ -->
+      <nav class="mode-tabs">
+        <button id="tab-quiz" class="mode-tab active">
+          <span class="icon">📿</span> 4択テスト
+        </button>
+        <button id="tab-flashcard" class="mode-tab">
+          <span class="icon">📖</span> 暗唱カード
+        </button>
+        <button id="tab-overview" class="mode-tab">
+          <span class="icon">📜</span> 全文一覧
+        </button>
+      </nav>
+
+      <!-- PWAインストール案内バナー（インストール可能な時に表示） -->
+      <div id="pwa-install-banner" class="pwa-install-banner hidden">
+        <span>📱 スマホにアプリとして登録できます</span>
+        <button id="btn-pwa-install" class="btn-pwa-install-action">インストール</button>
+      </div>
+
+      <!-- 意味の区切り（章）セレクター -->
+      <div id="section-selector" class="section-selector">
+        <!-- JSで章バッジを自動生成 -->
+      </div>
+    </header>
+
+    <!-- メイン表示領域 -->
+    <main class="app-main">
+
+      <!-- ① 4択暗唱クイズ画面 -->
+      <section id="quiz-view" class="view-panel active">
+        <!-- 進捗インジケーター -->
+        <div class="progress-wrap">
+          <div class="progress-bar-bg">
+            <div id="quiz-progress" class="progress-bar-fill"></div>
+          </div>
+          <span id="quiz-progress-text" class="progress-text">1 / 10 句</span>
+        </div>
+
+        <!-- 直前の句（出題プロンプト） -->
+        <div id="quiz-prompt-card" class="quiz-prompt-card">
+          <!-- JSでレンダリング -->
+        </div>
+
+        <!-- 4択選択肢グリッド -->
+        <div id="quiz-options" class="quiz-options-grid">
+          <!-- JSで4つの選択肢ボタンを生成 -->
+        </div>
+
+        <!-- 誤答時の解説＆次へボタン -->
+        <div id="quiz-feedback" class="quiz-feedback hidden"></div>
+        <button id="quiz-next-btn" class="btn-primary hidden">理解した！次へ進む ➔</button>
+      </section>
+
+      <!-- ② 暗唱カード送り画面 -->
+      <section id="card-view" class="view-panel hidden">
+        <div class="card-status-bar">
+          <span id="card-progress-text" class="card-progress-text">1 / 10 句</span>
+          <button id="btn-card-mokugyo" class="btn-mokugyo" title="木魚を鳴らす">
+            🥁 ポクッ
+          </button>
+        </div>
+
+        <div id="card-container" class="card-container">
+          <!-- JSでカードを表示 -->
+        </div>
+
+        <div class="card-controls">
+          <button id="btn-card-prev" class="btn-card-nav">◀ 前の句</button>
+          <button id="btn-card-next" class="btn-card-nav btn-primary">次の句 ▶</button>
+        </div>
+        <p class="card-hint">※画面のボタンまたは矢印キーで前後に送れます</p>
+      </section>
+
+      <!-- ③ 全文一覧画面 -->
+      <section id="overview-view" class="view-panel hidden">
+        <div id="overview-content" class="overview-list">
+          <!-- JSで全章・全句のリストを生成 -->
+        </div>
+      </section>
+
+    </main>
+
+    <!-- 結果モーダル -->
+    <div id="result-modal" class="modal-overlay hidden">
+      <div class="modal-content">
+        <div class="modal-bell">🔔</div>
+        <h2 id="modal-score-title" class="modal-title">読経完了！</h2>
+        <div id="modal-score-num" class="modal-score">10 / 10 問正解 (100%)</div>
+        <p id="modal-score-comment" class="modal-comment">素晴らしい！滞りなく暗唱できました。</p>
+        <div class="modal-actions">
+          <button id="modal-restart-btn" class="btn-secondary">もう一度挑戦</button>
+          <button id="modal-next-section-btn" class="btn-primary">次の章へ進む ➔</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="audio.js"></script>
+  <script src="app.js"></script>
+  <script>
+    // PWA Service Worker の登録
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').then(() => {
+          console.log('Service Worker 登録完了');
+        }).catch((err) => {
+          console.log('Service Worker 登録失敗:', err);
+        });
+      });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+{
+  "id": "heart-sutra-master",
+  "name": "般若心経 暗唱マスター",
+  "short_name": "般若心経",
+  "description": "般若心経をスマホで手軽に暗唱。意味の区切り別テスト、4択クイズ、ルビ・現代語訳・木魚音つきPWAアプリ。",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#121316",
+  "theme_color": "#121316",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
