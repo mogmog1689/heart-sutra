@@ -63,6 +63,16 @@
 
       <!-- ① 4択暗唱クイズ画面 -->
       <section id="quiz-view" class="view-panel active">
+        <!-- クイズ難易度・形式切り替えトグル -->
+        <div class="quiz-submode-toggle">
+          <button id="btn-mode-phrase" class="submode-btn active" title="フレーズ単位で暗唱クイズ">
+            📿 フレーズごと
+          </button>
+          <button id="btn-mode-char" class="submode-btn" title="一文字ずつ当てる高難度モード">
+            ⚡ 一文字ずつ（高難度）
+          </button>
+        </div>
+
         <!-- 進捗インジケーター -->
         <div class="progress-wrap">
           <div class="progress-bar-bg">

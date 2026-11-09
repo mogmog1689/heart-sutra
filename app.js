@@ -5,10 +5,14 @@ class SutraApp {
     // 状態管理
     this.currentMode = 'quiz'; // 'quiz' | 'flashcard' | 'overview'
     this.selectedSectionId = 1; // 1〜5 または 'all'
+    this.quizSubmode = this.loadSetting('sutra_quiz_submode', 'phrase'); // 'phrase' | 'char'
     
     // 表示設定（LocalStorage連携）
     this.showRuby = this.loadSetting('sutra_show_ruby', true);
     this.showMeaning = this.loadSetting('sutra_show_meaning', true);
+
+    // 般若心経の全ユニーク漢字リスト（一文字モードのダミー選択肢用）
+    this.allUniqueChars = Array.from(new Set(SUTRA_DATA.map(p => p.kanji).join('').split('')));
 
     // クイズ状態
     this.quizQueue = [];
@@ -26,6 +30,7 @@ class SutraApp {
 
     // 初期表示設定
     this.updateSettingUI();
+    this.updateSubmodeUI();
     this.renderSectionTabs();
     this.switchMode('quiz');
   }
@@ -59,6 +64,10 @@ class SutraApp {
     this.cardView = document.getElementById('card-view');
     this.overviewView = document.getElementById('overview-view');
     this.resultModal = document.getElementById('result-modal');
+
+    // クイズ形式（サブモード）切り替えボタン
+    this.btnModePhrase = document.getElementById('btn-mode-phrase');
+    this.btnModeChar = document.getElementById('btn-mode-char');
 
     // クイズUI要素
     this.quizProgress = document.getElementById('quiz-progress');
@@ -107,6 +116,14 @@ class SutraApp {
     this.tabQuiz.addEventListener('click', () => this.switchMode('quiz'));
     this.tabFlashcard.addEventListener('click', () => this.switchMode('flashcard'));
     this.tabOverview.addEventListener('click', () => this.switchMode('overview'));
+
+    // クイズ形式（フレーズ vs 一文字）切り替え
+    if (this.btnModePhrase) {
+      this.btnModePhrase.addEventListener('click', () => this.setQuizSubmode('phrase'));
+    }
+    if (this.btnModeChar) {
+      this.btnModeChar.addEventListener('click', () => this.setQuizSubmode('char'));
+    }
 
     // クイズ：次へボタン（誤答時の復習用）
     this.quizNextBtn.addEventListener('click', () => {
@@ -174,6 +191,25 @@ class SutraApp {
     } else {
       this.btnMeaning.classList.add('opacity-50');
       this.btnMeaning.innerHTML = '💬 <span class="btn-text">訳:切</span>';
+    }
+  }
+
+  setQuizSubmode(submode) {
+    if (this.quizSubmode === submode) return;
+    this.quizSubmode = submode;
+    this.saveSetting('sutra_quiz_submode', submode);
+    this.updateSubmodeUI();
+    if (this.currentMode === 'quiz') {
+      this.startQuiz();
+    }
+  }
+
+  updateSubmodeUI() {
+    if (this.btnModePhrase) {
+      this.btnModePhrase.classList.toggle('active', this.quizSubmode === 'phrase');
+    }
+    if (this.btnModeChar) {
+      this.btnModeChar.classList.toggle('active', this.quizSubmode === 'char');
     }
   }
 
@@ -256,6 +292,15 @@ class SutraApp {
   // 📿 暗唱4択クイズロジック
   // ==========================================
   startQuiz() {
+    if (this.quizSubmode === 'char') {
+      this.startCharQuiz();
+    } else {
+      this.startPhraseQuiz();
+    }
+  }
+
+  // ① フレーズごと出題モード（通常）
+  startPhraseQuiz() {
     const phrases = this.getSectionPhrases();
     if (phrases.length < 2) return;
 
@@ -264,14 +309,12 @@ class SutraApp {
     this.quizScore = 0;
     this.isAnswering = false;
 
-    // クイズ設問生成：フレーズごとに「次に来る句は？」を問う
     for (let i = 0; i < phrases.length; i++) {
       let promptPhrase = null;
       let targetPhrase = null;
       let questionTitle = "";
 
       if (i === 0) {
-        // 第1問目：最初の句を当てる
         targetPhrase = phrases[0];
         const sec = SUTRA_SECTIONS.find(s => s.id === this.selectedSectionId);
         questionTitle = sec ? `【${sec.shortTitle}】の最初の句は？` : "般若心経の始まりの句は？";
@@ -283,7 +326,6 @@ class SutraApp {
       }
 
       // 4択選択肢の作成（正解1 + 漢字が重複しないダミー3）
-      // 「舎利子」や「依般若波羅蜜多故」など同名フレーズが選択肢に複数出現するのを完全に防止
       const options = [targetPhrase];
       const usedKanji = new Set([targetPhrase.kanji]);
 
@@ -301,10 +343,57 @@ class SutraApp {
       this.shuffleArray(options);
 
       this.quizQueue.push({
+        isCharMode: false,
         questionTitle,
         promptPhrase,
         targetPhrase,
         options
+      });
+    }
+
+    this.renderQuizQuestion();
+  }
+
+  // ② 漢字一文字ずつ出題モード（高難度・極暗唱）
+  startCharQuiz() {
+    const phrases = this.getSectionPhrases();
+    if (phrases.length === 0) return;
+
+    this.quizQueue = [];
+    this.currentQuizIndex = 0;
+    this.quizScore = 0;
+    this.isAnswering = false;
+
+    // 選択章の文字を一文字ずつ展開
+    const charList = [];
+    phrases.forEach(phrase => {
+      for (let i = 0; i < phrase.kanji.length; i++) {
+        charList.push({
+          char: phrase.kanji[i],
+          phrase: phrase,
+          charIndex: i
+        });
+      }
+    });
+
+    for (let i = 0; i < charList.length; i++) {
+      const targetChar = charList[i].char;
+      const startIdx = Math.max(0, i - 6);
+      const prevSnippet = charList.slice(startIdx, i).map(c => c.char).join('');
+
+      // ダミー文字3つ（般若心経の全漢字から重複なく選出）
+      const dummyCandidates = this.allUniqueChars.filter(c => c !== targetChar);
+      this.shuffleArray(dummyCandidates);
+      const wrongChars = dummyCandidates.slice(0, 3);
+      const options = [targetChar, ...wrongChars];
+      this.shuffleArray(options);
+
+      this.quizQueue.push({
+        isCharMode: true,
+        targetChar: targetChar,
+        prevSnippet: prevSnippet,
+        parentPhrase: charList[i].phrase,
+        options: options
       });
     }
 
@@ -323,61 +412,97 @@ class SutraApp {
     // プログレスバー
     const pct = ((this.currentQuizIndex) / total) * 100;
     this.quizProgress.style.width = `${pct}%`;
-    this.quizProgressText.innerText = `${currentNum} / ${total} 句`;
+    const unitLabel = currentQ.isCharMode ? '字' : '句';
+    this.quizProgressText.innerText = `${currentNum} / ${total} ${unitLabel}`;
 
-    // 提示カード
-    let promptHtml = '';
-    if (currentQ.promptPhrase) {
-      promptHtml = `
-        <div class="prompt-label">前の句（唱えた句）</div>
-        <div class="prompt-kanji">${this.renderKanjiWithRuby(currentQ.promptPhrase)}</div>
-        ${this.showMeaning ? `<div class="prompt-meaning">${currentQ.promptPhrase.meaning}</div>` : ''}
-        <div class="prompt-arrow">▼ 次に来る句を選んでください ▼</div>
-      `;
-    } else {
-      promptHtml = `
-        <div class="prompt-label">${currentQ.questionTitle}</div>
-        <div class="prompt-starter-note">ここから読経が始まります</div>
-      `;
-    }
-    this.quizPromptCard.innerHTML = promptHtml;
-
-    // 4択ボタンの生成
-    this.quizOptionsGrid.innerHTML = '';
-    currentQ.options.forEach((opt, index) => {
-      const btn = document.createElement('button');
-      btn.className = 'quiz-opt-btn';
-      btn.dataset.id = opt.id;
-      btn.dataset.kanji = opt.kanji;
-
-      let optContent = `
-        <div class="opt-number">${['壱', '弐', '参', '四'][index]}</div>
-        <div class="opt-body">
-          <div class="opt-kanji">${this.renderKanjiWithRuby(opt)}</div>
-          ${this.showMeaning ? `<div class="opt-meaning">${opt.meaning}</div>` : ''}
+    // 提示カードと選択肢のレンダリング
+    if (currentQ.isCharMode) {
+      // 一文字高難度モードの表示
+      this.quizPromptCard.innerHTML = `
+        <div class="prompt-label">⚡ 次に来る漢字一文字は？</div>
+        <div class="char-slot-wrap">
+          ${currentQ.prevSnippet ? `<span class="char-slot-prev">${currentQ.prevSnippet}</span>` : '<span class="char-slot-prev">（読経の開始）</span>'}
+          <span class="char-slot-target">？</span>
         </div>
+        ${this.showMeaning ? `<div class="prompt-meaning">${currentQ.parentPhrase.kanji}（${currentQ.parentPhrase.ruby}）</div>` : ''}
       `;
-      btn.innerHTML = optContent;
 
-      btn.addEventListener('click', () => this.handleAnswer(btn, opt, currentQ.targetPhrase));
-      this.quizOptionsGrid.appendChild(btn);
-    });
+      // 4択ボタン（2x2グリッド・大文字）
+      this.quizOptionsGrid.className = 'quiz-options-grid char-grid';
+      this.quizOptionsGrid.innerHTML = '';
+
+      currentQ.options.forEach((optChar, index) => {
+        const btn = document.createElement('button');
+        btn.className = 'quiz-opt-btn char-btn';
+        btn.dataset.char = optChar;
+        btn.innerHTML = `
+          <div class="opt-number">${['壱', '弐', '参', '四'][index]}</div>
+          <div class="opt-kanji">${optChar}</div>
+        `;
+        btn.addEventListener('click', () => this.handleAnswer(btn, optChar, currentQ.targetChar, true, currentQ));
+        this.quizOptionsGrid.appendChild(btn);
+      });
+
+    } else {
+      // 通常フレーズモードの表示
+      this.quizOptionsGrid.className = 'quiz-options-grid';
+      let promptHtml = '';
+      if (currentQ.promptPhrase) {
+        promptHtml = `
+          <div class="prompt-label">前の句（唱えた句）</div>
+          <div class="prompt-kanji">${this.renderKanjiWithRuby(currentQ.promptPhrase)}</div>
+          ${this.showMeaning ? `<div class="prompt-meaning">${currentQ.promptPhrase.meaning}</div>` : ''}
+          <div class="prompt-arrow">▼ 次に来る句を選んでください ▼</div>
+        `;
+      } else {
+        promptHtml = `
+          <div class="prompt-label">${currentQ.questionTitle}</div>
+          <div class="prompt-starter-note">ここから読経が始まります</div>
+        `;
+      }
+      this.quizPromptCard.innerHTML = promptHtml;
+
+      // 4択ボタンの生成
+      this.quizOptionsGrid.innerHTML = '';
+      currentQ.options.forEach((opt, index) => {
+        const btn = document.createElement('button');
+        btn.className = 'quiz-opt-btn';
+        btn.dataset.id = opt.id;
+        btn.dataset.kanji = opt.kanji;
+
+        let optContent = `
+          <div class="opt-number">${['壱', '弐', '参', '四'][index]}</div>
+          <div class="opt-body">
+            <div class="opt-kanji">${this.renderKanjiWithRuby(opt)}</div>
+            ${this.showMeaning ? `<div class="opt-meaning">${opt.meaning}</div>` : ''}
+          </div>
+        `;
+        btn.innerHTML = optContent;
+
+        btn.addEventListener('click', () => this.handleAnswer(btn, opt, currentQ.targetPhrase, false, currentQ));
+        this.quizOptionsGrid.appendChild(btn);
+      });
+    }
   }
 
   renderKanjiWithRuby(phrase) {
     if (!this.showRuby) {
       return `<span>${phrase.kanji}</span>`;
     }
-    // ふりがなONの場合、ルビ付きタグを生成
     return `<ruby>${phrase.kanji}<rt>${phrase.ruby}</rt></ruby>`;
   }
 
-  handleAnswer(btnElement, chosenPhrase, correctPhrase) {
+  handleAnswer(btnElement, chosen, correct, isCharMode, currentQ) {
     if (this.isAnswering) return;
     this.isAnswering = true;
 
-    // IDまたは漢字一致で正解判定（同表記フレーズにも完全対応）
-    const isCorrect = chosenPhrase.id === correctPhrase.id || chosenPhrase.kanji === correctPhrase.kanji;
+    let isCorrect = false;
+    if (isCharMode) {
+      isCorrect = (chosen === correct);
+    } else {
+      isCorrect = (chosen.id === correct.id || chosen.kanji === correct.kanji);
+    }
+
     const allButtons = this.quizOptionsGrid.querySelectorAll('.quiz-opt-btn');
 
     if (isCorrect) {
@@ -385,12 +510,13 @@ class SutraApp {
       this.quizScore++;
       btnElement.classList.add('correct');
       audioEngine.playCorrect();
-      this.triggerHaptic(50);
+      this.triggerHaptic(40);
 
-      // 自動でテンポよく次の句へ（約0.65秒後）
+      // 一文字モードは超高速（約0.36秒）、フレーズモードは約0.65秒で自動進行
+      const delay = isCharMode ? 360 : 650;
       setTimeout(() => {
         this.advanceQuiz();
-      }, 650);
+      }, delay);
 
     } else {
       // 不正解処理
@@ -398,23 +524,37 @@ class SutraApp {
       audioEngine.playIncorrect();
       this.triggerHaptic([60, 40, 60]);
 
-      // 正しい句を強調表示
+      // 正しい句/文字を強調表示
       allButtons.forEach(b => {
-        const bId = parseInt(b.dataset.id);
-        if (bId === correctPhrase.id || b.dataset.kanji === correctPhrase.kanji) {
-          b.classList.add('show-correct');
+        if (isCharMode) {
+          if (b.dataset.char === correct) b.classList.add('show-correct');
+        } else {
+          const bId = parseInt(b.dataset.id);
+          if (bId === correct.id || b.dataset.kanji === correct.kanji) {
+            b.classList.add('show-correct');
+          }
         }
       });
 
       // 解説フィードバック表示
       this.quizFeedback.classList.remove('hidden');
-      this.quizFeedback.innerHTML = `
-        <div class="feedback-box">
-          <div class="feedback-title">惜しい！正解はこちらです</div>
-          <div class="feedback-kanji">${this.renderKanjiWithRuby(correctPhrase)}</div>
-          <div class="feedback-meaning">${correctPhrase.meaning}</div>
-        </div>
-      `;
+      if (isCharMode) {
+        this.quizFeedback.innerHTML = `
+          <div class="feedback-box">
+            <div class="feedback-title">惜しい！正解の文字はこちらです</div>
+            <div class="feedback-kanji" style="font-size: 1.8rem;">【 ${correct} 】</div>
+            <div class="feedback-meaning">${currentQ.parentPhrase.kanji}（${currentQ.parentPhrase.ruby}）</div>
+          </div>
+        `;
+      } else {
+        this.quizFeedback.innerHTML = `
+          <div class="feedback-box">
+            <div class="feedback-title">惜しい！正解はこちらです</div>
+            <div class="feedback-kanji">${this.renderKanjiWithRuby(correct)}</div>
+            <div class="feedback-meaning">${correct.meaning}</div>
+          </div>
+        `;
+      }
       this.quizNextBtn.classList.remove('hidden');
     }
   }
@@ -429,7 +569,6 @@ class SutraApp {
   }
 
   showQuizResult() {
-    // お鈴を鳴らして読経完了を演出
     audioEngine.playBell();
     this.triggerHaptic([100, 50, 100]);
 
@@ -443,16 +582,18 @@ class SutraApp {
       if (s) secName = s.title;
     }
 
-    document.getElementById('modal-score-title').innerText = `${secName} 完了！`;
-    document.getElementById('modal-score-num').innerText = `${score} / ${total} 問正解 (${pct}%)`;
+    const modeName = this.quizSubmode === 'char' ? '一文字暗唱（高難度）' : 'フレーズ暗唱';
+    const unit = this.quizSubmode === 'char' ? '字' : '問';
 
-    let comment = "素晴らしい！最後まで滞りなく唱えられました。南無観世音菩薩。";
+    document.getElementById('modal-score-title').innerText = `${secName} ${modeName} 完了！`;
+    document.getElementById('modal-score-num').innerText = `${score} / ${total} ${unit}正解 (${pct}%)`;
+
+    let comment = "素晴らしい！一文字の滞りもなく完璧に暗唱できました。南無観世音菩薩。";
     if (pct < 100) {
-      comment = "間違えた箇所を意識して、もう一度挑戦してみましょう！繰り返すことで自然と口から出るようになります。";
+      comment = "間違えた箇所を意識して、もう一度挑戦してみましょう！繰り返すことで自然と指が正解へ動くようになります。";
     }
     document.getElementById('modal-score-comment').innerText = comment;
 
-    // 次の章ボタンのテキスト調整
     const nextBtn = document.getElementById('modal-next-section-btn');
     if (this.selectedSectionId === 'all' || this.selectedSectionId === SUTRA_SECTIONS.length) {
       nextBtn.innerText = '最初から通しで挑戦';
