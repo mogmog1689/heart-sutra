@@ -52,7 +52,7 @@ body {
 /* アプリ全体のコンテナ（スマホ幅に最適化、PCでは中央にスマホ枠） */
 .app-container {
   width: 100%;
-  max-width: 500px;
+  max-width: 480px;
   min-height: 100vh;
   min-height: 100dvh;
   display: flex;
@@ -60,7 +60,7 @@ body {
   position: relative;
   background-color: var(--bg-main);
   box-shadow: 0 0 40px rgba(0,0,0,0.8);
-  padding-bottom: env(safe-area-inset-bottom, 20px);
+  padding-bottom: env(safe-area-inset-bottom, 12px);
 }
 
 /* ========================================================
@@ -73,52 +73,56 @@ body {
   position: sticky;
   top: 0;
   z-index: 100;
-  padding: 10px 14px 6px 14px;
-  padding-top: max(10px, env(safe-area-inset-top));
+  padding: 8px 10px 4px 10px;
+  padding-top: max(8px, env(safe-area-inset-top));
 }
 
 .header-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+  gap: 4px;
 }
 
 .app-title {
   font-family: var(--font-serif);
-  font-size: 1.15rem;
-  letter-spacing: 0.12em;
+  font-size: clamp(0.95rem, 4vw, 1.15rem);
+  letter-spacing: 0.08em;
   color: var(--gold-primary);
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .app-title span {
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   color: var(--vermilion);
   background: rgba(230, 82, 67, 0.15);
-  padding: 2px 6px;
+  padding: 1px 4px;
   border-radius: 4px;
-  margin-left: 4px;
+  margin-left: 2px;
   vertical-align: middle;
 }
 
 /* 設定ボタングループ（音、ルビ、訳） */
 .quick-settings {
   display: flex;
-  gap: 6px;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .btn-toggle {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   color: var(--text-main);
-  font-size: 0.72rem;
-  padding: 5px 8px;
+  font-size: 0.68rem;
+  padding: 4px 6px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
+  white-space: nowrap;
   transition: all 0.2s ease;
 }
 
@@ -136,9 +140,9 @@ body {
 .mode-tabs {
   display: flex;
   background: rgba(0, 0, 0, 0.4);
-  padding: 3px;
+  padding: 2px;
   border-radius: var(--radius-md);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .mode-tab {
@@ -146,15 +150,16 @@ body {
   background: transparent;
   border: none;
   color: var(--text-muted);
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   font-weight: 600;
-  padding: 7px 4px;
+  padding: 6px 2px;
   border-radius: calc(var(--radius-md) - 3px);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
+  white-space: nowrap;
   transition: all 0.25s ease;
 }
 
@@ -241,7 +246,7 @@ body {
 ======================================================== */
 .app-main {
   flex: 1;
-  padding: 14px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
 }
@@ -264,10 +269,10 @@ ruby {
 
 rt {
   font-family: var(--font-sans);
-  font-size: 0.55em;
+  font-size: 0.52em;
   color: var(--gold-light);
-  letter-spacing: 0.05em;
-  transform: translateY(-2px);
+  letter-spacing: 0.03em;
+  transform: translateY(-1px);
   font-weight: 400;
 }
 
@@ -277,13 +282,13 @@ rt {
 .progress-wrap {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
+  gap: 8px;
+  margin-bottom: 6px;
 }
 
 .progress-bar-bg {
   flex: 1;
-  height: 6px;
+  height: 5px;
   background: var(--bg-card);
   border-radius: 4px;
   overflow: hidden;
@@ -297,62 +302,65 @@ rt {
 }
 
 .progress-text {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 /* 出題プロンプトカード */
 .quiz-prompt-card {
   background: linear-gradient(145deg, #1f2026, #17181c);
   border: 1px solid var(--border-color);
-  border-left: 4px solid var(--gold-primary);
+  border-left: 3px solid var(--gold-primary);
   border-radius: var(--radius-md);
-  padding: 16px;
-  margin-bottom: 14px;
+  padding: 9px 12px;
+  margin-bottom: 8px;
   text-align: center;
   box-shadow: var(--shadow-sm);
 }
 
 .prompt-label {
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   color: var(--gold-dim);
-  letter-spacing: 0.1em;
-  margin-bottom: 6px;
+  letter-spacing: 0.08em;
+  margin-bottom: 3px;
 }
 
 .prompt-kanji {
   font-family: var(--font-serif);
-  font-size: 1.45rem;
+  font-size: clamp(1.1rem, 4.8vw, 1.35rem);
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   color: #fff;
-  line-height: 1.6;
-  margin: 6px 0;
+  line-height: 1.45;
+  margin: 3px 0;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 .prompt-meaning {
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
-  line-height: 1.4;
-  margin-top: 6px;
-  padding-top: 6px;
+  line-height: 1.35;
+  margin-top: 4px;
+  padding-top: 4px;
   border-top: 1px dashed rgba(255, 255, 255, 0.08);
 }
 
 .prompt-arrow {
-  margin-top: 10px;
-  font-size: 0.72rem;
+  margin-top: 5px;
+  font-size: 0.68rem;
   color: var(--gold-primary);
   font-weight: 600;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.03em;
   animation: pulse-down 1.6s infinite ease-in-out;
 }
 
 .prompt-starter-note {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
 @keyframes pulse-down {
@@ -364,23 +372,23 @@ rt {
 .quiz-options-grid {
   display: flex;
   flex-direction: column;
-  gap: 9px;
-  margin-bottom: 12px;
+  gap: 6px;
+  margin-bottom: 8px;
 }
 
 .quiz-opt-btn {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: 12px 14px;
+  border-radius: 10px;
+  padding: 7px 10px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 9px;
   text-align: left;
   cursor: pointer;
   transition: all 0.18s cubic-bezier(0.2, 0.8, 0.2, 1);
   color: var(--text-main);
-  min-height: 58px;
+  min-height: 48px;
 }
 
 .quiz-opt-btn:active {
@@ -389,11 +397,11 @@ rt {
 
 .opt-number {
   font-family: var(--font-serif);
-  font-size: 0.85rem;
+  font-size: 0.75rem;
   color: var(--gold-dim);
   background: rgba(255, 255, 255, 0.04);
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -403,21 +411,24 @@ rt {
 
 .opt-body {
   flex: 1;
+  min-width: 0; /* flexbox内でのテキストはみ出し防止 */
 }
 
 .opt-kanji {
   font-family: var(--font-serif);
-  font-size: 1.15rem;
+  font-size: clamp(0.92rem, 4vw, 1.08rem);
   font-weight: 600;
-  letter-spacing: 0.06em;
-  line-height: 1.5;
+  letter-spacing: 0.04em;
+  line-height: 1.38;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 .opt-meaning {
-  font-size: 0.74rem;
+  font-size: 0.68rem;
   color: var(--text-muted);
-  margin-top: 3px;
-  line-height: 1.3;
+  margin-top: 2px;
+  line-height: 1.25;
 }
 
 /* 正解・不正解アニメーション */
@@ -518,11 +529,11 @@ rt {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 14px;
+  margin-bottom: 8px;
 }
 
 .card-progress-text {
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
 }
 
@@ -530,8 +541,8 @@ rt {
   background: var(--bg-card);
   border: 1px solid var(--gold-dim);
   color: var(--gold-light);
-  font-size: 0.8rem;
-  padding: 6px 12px;
+  font-size: 0.75rem;
+  padding: 5px 10px;
   border-radius: 20px;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -548,7 +559,7 @@ rt {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 240px;
+  min-height: 180px;
 }
 
 .flashcard {
@@ -556,53 +567,55 @@ rt {
   background: linear-gradient(160deg, #20222a, #16171c);
   border: 1px solid var(--border-gold);
   border-radius: var(--radius-lg);
-  padding: 30px 20px;
+  padding: 18px 12px;
   text-align: center;
   box-shadow: var(--shadow-md);
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  min-height: 220px;
+  min-height: 170px;
 }
 
 .card-phrase-id {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--gold-dim);
-  letter-spacing: 0.15em;
-  margin-bottom: 12px;
+  letter-spacing: 0.12em;
+  margin-bottom: 8px;
 }
 
 .card-kanji {
   font-family: var(--font-serif);
-  font-size: 1.85rem;
+  font-size: clamp(1.3rem, 6vw, 1.75rem);
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   color: #fff;
-  line-height: 1.7;
-  margin-bottom: 12px;
+  line-height: 1.5;
+  margin-bottom: 8px;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 .card-meaning {
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
-  line-height: 1.5;
+  line-height: 1.4;
   max-width: 380px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
-  padding-top: 10px;
+  padding-top: 8px;
 }
 
 .card-controls {
   display: flex;
-  gap: 12px;
-  margin-top: 18px;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .btn-card-nav {
   flex: 1;
-  padding: 14px 10px;
+  padding: 10px 8px;
   border-radius: var(--radius-md);
-  font-size: 0.95rem;
+  font-size: 0.88rem;
   font-weight: 600;
   cursor: pointer;
   border: 1px solid var(--border-color);
