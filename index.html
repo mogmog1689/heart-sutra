@@ -42,7 +42,10 @@
           <span class="icon">📖</span> 暗唱カード
         </button>
         <button id="tab-overview" class="mode-tab">
-          <span class="icon">📜</span> 全文一覧
+          <span class="icon">📜</span> 全文
+        </button>
+        <button id="tab-history" class="mode-tab">
+          <span class="icon">📊</span> 記録
         </button>
       </nav>
 
@@ -123,6 +126,52 @@
         </div>
       </section>
 
+      <!-- ④ 学習記録・弱点復習画面 -->
+      <section id="history-view" class="view-panel hidden">
+        <!-- 読経カウンターサマリー -->
+        <div class="stats-summary-card">
+          <div class="stat-item">
+            <span class="stat-label">本日読経</span>
+            <span id="stat-today-count" class="stat-value">0 <small>回</small></span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-item">
+            <span class="stat-label">累計読経</span>
+            <span id="stat-total-count" class="stat-value">0 <small>回</small></span>
+          </div>
+        </div>
+
+        <!-- 間違えた個所（弱点帳）セクション -->
+        <div class="history-section-card">
+          <div class="history-sec-header">
+            <h3>⚠️ 間違えた個所（弱点帳）</h3>
+            <span id="mistake-count-badge" class="badge-count">0 件</span>
+          </div>
+          <div class="mistake-actions">
+            <button id="btn-quiz-mistakes" class="btn-primary btn-sm" disabled>
+              🔥 間違えた箇所だけ復習テスト
+            </button>
+            <button id="btn-clear-mistakes" class="btn-secondary btn-sm" title="間違えた記録をリセット">
+              リセット
+            </button>
+          </div>
+          <div id="mistakes-list" class="mistakes-list">
+            <!-- JSで間違えた句のリストを表示 -->
+          </div>
+        </div>
+
+        <!-- 学習日時・履歴ログセクション -->
+        <div class="history-section-card">
+          <div class="history-sec-header">
+            <h3>📅 最近の学習履歴</h3>
+            <button id="btn-clear-history" class="btn-link" title="履歴を消去">消去</button>
+          </div>
+          <div id="history-log-list" class="history-log-list">
+            <!-- JSで学習日時ログを表示 -->
+          </div>
+        </div>
+      </section>
+
     </main>
 
     <!-- 結果モーダル -->
@@ -133,6 +182,7 @@
         <div id="modal-score-num" class="modal-score">10 / 10 問正解 (100%)</div>
         <p id="modal-score-comment" class="modal-comment">素晴らしい！滞りなく暗唱できました。</p>
         <div class="modal-actions">
+          <button id="modal-retry-mistakes-btn" class="btn-primary hidden">間違えた箇所だけ復習 ➔</button>
           <button id="modal-restart-btn" class="btn-secondary">もう一度挑戦</button>
           <button id="modal-next-section-btn" class="btn-primary">次の章へ進む ➔</button>
         </div>

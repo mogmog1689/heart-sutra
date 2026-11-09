@@ -3,13 +3,19 @@
 class SutraApp {
   constructor() {
     // 状態管理
-    this.currentMode = 'quiz'; // 'quiz' | 'flashcard' | 'overview'
+    this.currentMode = 'quiz'; // 'quiz' | 'flashcard' | 'overview' | 'history'
     this.selectedSectionId = 1; // 1〜5 または 'all'
     this.quizSubmode = this.loadSetting('sutra_quiz_submode', 'phrase'); // 'phrase' | 'char'
     
     // 表示設定（LocalStorage連携）
     this.showRuby = this.loadSetting('sutra_show_ruby', true);
     this.showMeaning = this.loadSetting('sutra_show_meaning', true);
+
+    // 学習履歴・間違い記録・読経カウント
+    this.studyHistory = this.loadJson('sutra_study_history', []);
+    this.mistakes = this.loadJson('sutra_mistakes', { phrases: {}, chars: {} });
+    this.readingStats = this.loadJson('sutra_reading_stats', { totalCount: 0, dailyCounts: {} });
+    this.sessionMistakes = []; // 現在のクイズで間違えた問題の一時記録
 
     // 般若心経の全ユニーク漢字リスト（一文字モードのダミー選択肢用）
     this.allUniqueChars = Array.from(new Set(SUTRA_DATA.map(p => p.kanji).join('').split('')));
@@ -19,6 +25,7 @@ class SutraApp {
     this.currentQuizIndex = 0;
     this.quizScore = 0;
     this.isAnswering = false;
+    this.isMistakeReviewMode = false; // 弱点復習テスト中フラグ
 
     // 暗唱カード状態
     this.cardList = [];
@@ -44,6 +51,21 @@ class SutraApp {
     localStorage.setItem(key, value);
   }
 
+  loadJson(key, defaultValue) {
+    try {
+      const v = localStorage.getItem(key);
+      return v ? JSON.parse(v) : defaultValue;
+    } catch(e) {
+      return defaultValue;
+    }
+  }
+
+  saveJson(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch(e) {}
+  }
+
   initDOMElements() {
     // ボタン
     this.btnSound = document.getElementById('btn-sound');
@@ -55,6 +77,7 @@ class SutraApp {
     this.tabQuiz = document.getElementById('tab-quiz');
     this.tabFlashcard = document.getElementById('tab-flashcard');
     this.tabOverview = document.getElementById('tab-overview');
+    this.tabHistory = document.getElementById('tab-history');
 
     // セクション選択エリア
     this.sectionSelector = document.getElementById('section-selector');
@@ -63,7 +86,19 @@ class SutraApp {
     this.quizView = document.getElementById('quiz-view');
     this.cardView = document.getElementById('card-view');
     this.overviewView = document.getElementById('overview-view');
+    this.historyView = document.getElementById('history-view');
     this.resultModal = document.getElementById('result-modal');
+
+    // 記録画面UI要素
+    this.statTodayCount = document.getElementById('stat-today-count');
+    this.statTotalCount = document.getElementById('stat-total-count');
+    this.mistakeCountBadge = document.getElementById('mistake-count-badge');
+    this.btnQuizMistakes = document.getElementById('btn-quiz-mistakes');
+    this.btnClearMistakes = document.getElementById('btn-clear-mistakes');
+    this.mistakesList = document.getElementById('mistakes-list');
+    this.historyLogList = document.getElementById('history-log-list');
+    this.btnClearHistory = document.getElementById('btn-clear-history');
+    this.modalRetryMistakesBtn = document.getElementById('modal-retry-mistakes-btn');
 
     // クイズ形式（サブモード）切り替えボタン
     this.btnModePhrase = document.getElementById('btn-mode-phrase');
@@ -116,6 +151,7 @@ class SutraApp {
     this.tabQuiz.addEventListener('click', () => this.switchMode('quiz'));
     this.tabFlashcard.addEventListener('click', () => this.switchMode('flashcard'));
     this.tabOverview.addEventListener('click', () => this.switchMode('overview'));
+    this.tabHistory.addEventListener('click', () => this.switchMode('history'));
 
     // クイズ形式（フレーズ vs 一文字）切り替え
     if (this.btnModePhrase) {
@@ -123,6 +159,23 @@ class SutraApp {
     }
     if (this.btnModeChar) {
       this.btnModeChar.addEventListener('click', () => this.setQuizSubmode('char'));
+    }
+
+    // 弱点復習テストボタン
+    if (this.btnQuizMistakes) {
+      this.btnQuizMistakes.addEventListener('click', () => this.startMistakeQuiz());
+    }
+    if (this.btnClearMistakes) {
+      this.btnClearMistakes.addEventListener('click', () => this.clearMistakes());
+    }
+    if (this.btnClearHistory) {
+      this.btnClearHistory.addEventListener('click', () => this.clearHistory());
+    }
+    if (this.modalRetryMistakesBtn) {
+      this.modalRetryMistakesBtn.addEventListener('click', () => {
+        this.resultModal.classList.add('hidden');
+        this.startMistakeQuiz();
+      });
     }
 
     // クイズ：次へボタン（誤答時の復習用）
@@ -269,12 +322,18 @@ class SutraApp {
     this.tabQuiz.classList.toggle('active', mode === 'quiz');
     this.tabFlashcard.classList.toggle('active', mode === 'flashcard');
     this.tabOverview.classList.toggle('active', mode === 'overview');
+    if (this.tabHistory) this.tabHistory.classList.toggle('active', mode === 'history');
 
     this.quizView.classList.toggle('hidden', mode !== 'quiz');
     this.cardView.classList.toggle('hidden', mode !== 'flashcard');
     this.overviewView.classList.toggle('hidden', mode !== 'overview');
+    if (this.historyView) this.historyView.classList.toggle('hidden', mode !== 'history');
 
-    // 全文一覧モードではセクション選択の代わりにスクロール表示
+    // セクションセレクターは記録画面では非表示に
+    if (this.sectionSelector) {
+      this.sectionSelector.style.display = (mode === 'history') ? 'none' : 'flex';
+    }
+
     this.refreshCurrentView();
   }
 
@@ -285,6 +344,8 @@ class SutraApp {
       this.startFlashcard();
     } else if (this.currentMode === 'overview') {
       this.renderOverview();
+    } else if (this.currentMode === 'history') {
+      this.renderHistoryView();
     }
   }
 
@@ -301,6 +362,8 @@ class SutraApp {
 
   // ① フレーズごと出題モード（通常）
   startPhraseQuiz() {
+    this.isMistakeReviewMode = false;
+    this.sessionMistakes = [];
     const phrases = this.getSectionPhrases();
     if (phrases.length < 2) return;
 
@@ -356,6 +419,8 @@ class SutraApp {
 
   // ② 漢字一文字ずつ出題モード（高難度・極暗唱）
   startCharQuiz() {
+    this.isMistakeReviewMode = false;
+    this.sessionMistakes = [];
     const phrases = this.getSectionPhrases();
     if (phrases.length === 0) return;
 
@@ -524,6 +589,9 @@ class SutraApp {
       audioEngine.playIncorrect();
       this.triggerHaptic([60, 40, 60]);
 
+      // 間違いの記録
+      this.recordMistake(currentQ);
+
       // 正しい句/文字を強調表示
       allButtons.forEach(b => {
         if (isCharMode) {
@@ -579,20 +647,36 @@ class SutraApp {
     let secName = "全編通し";
     if (this.selectedSectionId !== 'all') {
       const s = SUTRA_SECTIONS.find(item => item.id === this.selectedSectionId);
-      if (s) secName = s.title;
+      if (s) secName = s.shortTitle;
+    }
+    if (this.isMistakeReviewMode) {
+      secName = "弱点克服テスト";
     }
 
-    const modeName = this.quizSubmode === 'char' ? '一文字暗唱（高難度）' : 'フレーズ暗唱';
+    const modeName = this.quizSubmode === 'char' ? '一文字' : 'フレーズ';
     const unit = this.quizSubmode === 'char' ? '字' : '問';
+
+    // 学習履歴・読経回数の保存
+    this.recordCompletion(secName, modeName, score, total, pct);
 
     document.getElementById('modal-score-title').innerText = `${secName} ${modeName} 完了！`;
     document.getElementById('modal-score-num').innerText = `${score} / ${total} ${unit}正解 (${pct}%)`;
 
     let comment = "素晴らしい！一文字の滞りもなく完璧に暗唱できました。南無観世音菩薩。";
     if (pct < 100) {
-      comment = "間違えた箇所を意識して、もう一度挑戦してみましょう！繰り返すことで自然と指が正解へ動くようになります。";
+      comment = `間違えた箇所が ${this.sessionMistakes.length} 件ありました。弱点復習で確実に定着させましょう！`;
     }
     document.getElementById('modal-score-comment').innerText = comment;
+
+    // 今回間違えた箇所があれば「復習」ボタンを表示
+    if (this.modalRetryMistakesBtn) {
+      if (this.sessionMistakes.length > 0) {
+        this.modalRetryMistakesBtn.classList.remove('hidden');
+        this.modalRetryMistakesBtn.innerText = `間違えた ${this.sessionMistakes.length} 箇所を復習 ➔`;
+      } else {
+        this.modalRetryMistakesBtn.classList.add('hidden');
+      }
+    }
 
     const nextBtn = document.getElementById('modal-next-section-btn');
     if (this.selectedSectionId === 'all' || this.selectedSectionId === SUTRA_SECTIONS.length) {
@@ -602,6 +686,269 @@ class SutraApp {
     }
 
     this.resultModal.classList.remove('hidden');
+  }
+
+  // ==========================================
+  // 📊 学習記録・間違い帳・弱点復習機能
+  // ==========================================
+  recordMistake(currentQ) {
+    const now = new Date();
+    const dateStr = `${now.getMonth() + 1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    if (currentQ.isCharMode) {
+      const char = currentQ.targetChar;
+      if (!this.mistakes.chars) this.mistakes.chars = {};
+      if (!this.mistakes.chars[char]) {
+        this.mistakes.chars[char] = {
+          char: char,
+          parentKanji: currentQ.parentPhrase.kanji,
+          parentRuby: currentQ.parentPhrase.ruby,
+          count: 0,
+          lastDate: dateStr
+        };
+      }
+      this.mistakes.chars[char].count++;
+      this.mistakes.chars[char].lastDate = dateStr;
+    } else {
+      const p = currentQ.targetPhrase;
+      if (!this.mistakes.phrases) this.mistakes.phrases = {};
+      if (!this.mistakes.phrases[p.id]) {
+        this.mistakes.phrases[p.id] = {
+          id: p.id,
+          kanji: p.kanji,
+          ruby: p.ruby,
+          meaning: p.meaning,
+          count: 0,
+          lastDate: dateStr
+        };
+      }
+      this.mistakes.phrases[p.id].count++;
+      this.mistakes.phrases[p.id].lastDate = dateStr;
+    }
+
+    this.sessionMistakes.push(currentQ);
+    this.saveJson('sutra_mistakes', this.mistakes);
+  }
+
+  recordCompletion(secName, modeName, score, total, pct) {
+    const now = new Date();
+    const dateStr = `${now.getMonth() + 1}/${now.getDate()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    // 読経カウンター更新
+    if (!this.readingStats) this.readingStats = { totalCount: 0, dailyCounts: {} };
+    if (!this.readingStats.dailyCounts) this.readingStats.dailyCounts = {};
+    this.readingStats.totalCount = (this.readingStats.totalCount || 0) + 1;
+    this.readingStats.dailyCounts[todayKey] = (this.readingStats.dailyCounts[todayKey] || 0) + 1;
+    this.saveJson('sutra_reading_stats', this.readingStats);
+
+    // 履歴ログ追加（先頭に挿入、最大50件保持）
+    if (!Array.isArray(this.studyHistory)) this.studyHistory = [];
+    this.studyHistory.unshift({
+      id: Date.now(),
+      date: dateStr,
+      secName: secName,
+      modeName: modeName,
+      score: score,
+      total: total,
+      pct: pct
+    });
+    if (this.studyHistory.length > 50) {
+      this.studyHistory.pop();
+    }
+    this.saveJson('sutra_study_history', this.studyHistory);
+  }
+
+  renderHistoryView() {
+    // 1. 読経カウンターサマリー
+    const now = new Date();
+    const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const todayCount = (this.readingStats && this.readingStats.dailyCounts && this.readingStats.dailyCounts[todayKey]) ? this.readingStats.dailyCounts[todayKey] : 0;
+    const totalCount = (this.readingStats && this.readingStats.totalCount) ? this.readingStats.totalCount : 0;
+
+    if (this.statTodayCount) this.statTodayCount.innerHTML = `${todayCount} <small>回</small>`;
+    if (this.statTotalCount) this.statTotalCount.innerHTML = `${totalCount} <small>回</small>`;
+
+    // 2. 間違いリスト
+    const phraseMistakes = Object.values(this.mistakes?.phrases || {});
+    const charMistakes = Object.values(this.mistakes?.chars || {});
+    const totalMistakes = phraseMistakes.length + charMistakes.length;
+
+    if (this.mistakeCountBadge) {
+      this.mistakeCountBadge.innerText = `${totalMistakes} 件`;
+    }
+    if (this.btnQuizMistakes) {
+      this.btnQuizMistakes.disabled = (totalMistakes === 0);
+      this.btnQuizMistakes.innerText = totalMistakes > 0 
+        ? `🔥 間違えた箇所だけ復習テスト（${totalMistakes}問）` 
+        : `🔥 間違えた箇所だけ復習テスト`;
+    }
+
+    if (this.mistakesList) {
+      if (totalMistakes === 0) {
+        this.mistakesList.innerHTML = `
+          <div class="empty-state">
+            ✨ まだ間違えた箇所はありません！<br>
+            4択テストに挑戦して、苦手な箇所を克服しましょう。
+          </div>
+        `;
+      } else {
+        // ミス回数の多い順にソート
+        phraseMistakes.sort((a, b) => b.count - a.count);
+        charMistakes.sort((a, b) => b.count - a.count);
+
+        let html = '';
+        phraseMistakes.forEach(m => {
+          html += `
+            <div class="mistake-item">
+              <div class="mistake-main">
+                <div class="mistake-kanji">${m.kanji}</div>
+                <div class="mistake-meta">${m.ruby} ｜ 最終ミス: ${m.lastDate}</div>
+              </div>
+              <span class="mistake-count-tag">${m.count}回ミス</span>
+              <button class="btn-remove-mistake" onclick="window.app.removeMistake('phrase', ${m.id})" title="覚えた（一覧から削除）">✕</button>
+            </div>
+          `;
+        });
+
+        charMistakes.forEach(m => {
+          html += `
+            <div class="mistake-item">
+              <div class="mistake-main">
+                <div class="mistake-kanji" style="font-size: 1.3rem; color: var(--gold-light);">【 ${m.char} 】</div>
+                <div class="mistake-meta">${m.parentKanji}（${m.parentRuby}） ｜ ${m.lastDate}</div>
+              </div>
+              <span class="mistake-count-tag">${m.count}回ミス</span>
+              <button class="btn-remove-mistake" onclick="window.app.removeMistake('char', '${m.char}')" title="覚えた（一覧から削除）">✕</button>
+            </div>
+          `;
+        });
+
+        this.mistakesList.innerHTML = html;
+      }
+    }
+
+    // 3. 学習履歴タイムライン
+    if (this.historyLogList) {
+      if (!this.studyHistory || this.studyHistory.length === 0) {
+        this.historyLogList.innerHTML = `
+          <div class="empty-state">
+            まだ学習履歴がありません。<br>
+            4択テストを完了すると、ここに日時の履歴が記録されます。
+          </div>
+        `;
+      } else {
+        let html = '';
+        this.studyHistory.forEach(item => {
+          let scoreClass = 'log-score-badge';
+          if (item.pct === 100) scoreClass += ' perfect';
+          else if (item.pct >= 80) scoreClass += ' good';
+
+          html += `
+            <div class="history-log-item">
+              <div class="log-info">
+                <span class="log-date">${item.date}</span>
+                <span class="log-title">${item.secName} <small style="color:var(--text-dim);font-weight:normal;">(${item.modeName})</small></span>
+              </div>
+              <span class="${scoreClass}">${item.score}/${item.total} (${item.pct}%)</span>
+            </div>
+          `;
+        });
+        this.historyLogList.innerHTML = html;
+      }
+    }
+  }
+
+  // 苦手リストから特定のアイテムを削除
+  removeMistake(type, idOrChar) {
+    if (type === 'phrase') {
+      delete this.mistakes.phrases[idOrChar];
+    } else {
+      delete this.mistakes.chars[idOrChar];
+    }
+    this.saveJson('sutra_mistakes', this.mistakes);
+    this.renderHistoryView();
+  }
+
+  clearMistakes() {
+    if (!confirm('間違えた記録をすべてリセットしますか？')) return;
+    this.mistakes = { phrases: {}, chars: {} };
+    this.saveJson('sutra_mistakes', this.mistakes);
+    this.renderHistoryView();
+  }
+
+  clearHistory() {
+    if (!confirm('学習履歴ログをすべて消去しますか？')) return;
+    this.studyHistory = [];
+    this.saveJson('sutra_study_history', this.studyHistory);
+    this.renderHistoryView();
+  }
+
+  // 間違えた箇所だけをテストする弱点克服モード
+  startMistakeQuiz() {
+    // セッション中に間違えた問題、または保存された苦手リストから生成
+    const phraseMistakes = Object.values(this.mistakes?.phrases || {});
+    const charMistakes = Object.values(this.mistakes?.chars || {});
+
+    if (phraseMistakes.length === 0 && charMistakes.length === 0) {
+      alert('現在、間違えた箇所はありません！');
+      return;
+    }
+
+    this.isMistakeReviewMode = true;
+    this.sessionMistakes = [];
+    this.quizQueue = [];
+    this.currentQuizIndex = 0;
+    this.quizScore = 0;
+    this.isAnswering = false;
+
+    // フレーズの間違い問題を生成
+    phraseMistakes.forEach(m => {
+      const targetPhrase = SUTRA_DATA.find(p => p.id === m.id) || m;
+      const prevPhrase = targetPhrase.id > 0 ? SUTRA_DATA[targetPhrase.id - 1] : null;
+
+      // ダミー候補
+      const dummyCandidates = SUTRA_DATA.filter(p => p.kanji !== targetPhrase.kanji);
+      this.shuffleArray(dummyCandidates);
+      const wrongOptions = dummyCandidates.slice(0, 3);
+      const options = [targetPhrase, ...wrongOptions];
+      this.shuffleArray(options);
+
+      this.quizQueue.push({
+        isCharMode: false,
+        questionTitle: "【苦手克服】次に来る句はどれ？",
+        promptPhrase: prevPhrase,
+        targetPhrase: targetPhrase,
+        options: options
+      });
+    });
+
+    // 一文字の間違い問題を生成
+    charMistakes.forEach(m => {
+      const targetChar = m.char;
+      const dummyCandidates = this.allUniqueChars.filter(c => c !== targetChar);
+      this.shuffleArray(dummyCandidates);
+      const wrongChars = dummyCandidates.slice(0, 3);
+      const options = [targetChar, ...wrongChars];
+      this.shuffleArray(options);
+
+      const parentPhrase = SUTRA_DATA.find(p => p.kanji.includes(targetChar)) || { kanji: m.parentKanji, ruby: m.parentRuby };
+      const charIdx = parentPhrase.kanji.indexOf(targetChar);
+      const prevSnippet = charIdx > 0 ? parentPhrase.kanji.slice(Math.max(0, charIdx - 4), charIdx) : "";
+
+      this.quizQueue.push({
+        isCharMode: true,
+        targetChar: targetChar,
+        prevSnippet: prevSnippet,
+        parentPhrase: parentPhrase,
+        options: options
+      });
+    });
+
+    this.shuffleArray(this.quizQueue);
+
+    // クイズ画面へ切り替えて開始
+    this.switchMode('quiz');
   }
 
   // ==========================================
